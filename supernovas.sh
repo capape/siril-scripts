@@ -121,10 +121,10 @@ function generating_gsn() {
        echo "stack r_pp_${sequence} rej 3 3 -norm=addscale " >> ${siril_tmp_dir}/${siril_script}  
        # echo "load ${stack_name}"
        echo 
-
-        echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-        echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-        echo "" >> ${siril_tmp_dir}/${siril_script}  
+       echo "savetiff ${supernova_base_name}_result"
+       echo "cd .." >> ${siril_tmp_dir}/${siril_script}
+       echo "cd .." >> ${siril_tmp_dir}/${siril_script}
+       echo "" >> ${siril_tmp_dir}/${siril_script}  
     done
     
     echo "############################################################" >> ${siril_tmp_dir}/${siril_script}  
@@ -174,6 +174,7 @@ function generating_glx() {
        echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> ${siril_tmp_dir}/${siril_script}  
        echo "load ${stack_name}"
        echo 
+       echo "savetiff ${galaxy_base_name}_result"
 
         echo "cd .." >> ${siril_tmp_dir}/${siril_script}
         echo "cd .." >> ${siril_tmp_dir}/${siril_script}

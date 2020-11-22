@@ -159,6 +159,7 @@ function generating_exo() {
     exo_base_name="${exo_base_name}_${filter}_"
     stack_flat=${5}
     stack_dark=${6}
+    stack_bias=${7}
      
 
     echo "#############################" >> ${siril_tmp_dir}/${siril_script}  
@@ -173,7 +174,7 @@ function generating_exo() {
     sequence=`find ${img_src_folder} -iname "${exo_base_name}*_001.fit" -type f -printf "%f\n" | sed -e "s/001.fit//"` 
 
     echo "cd $tmp_dir" >> ${siril_tmp_dir}/${siril_script} 
-    echo "preprocess ${sequence} -dark=../darks/${stack_dark} -flat =../flats/${stack_flat} -cfa -prefix=result" >> ${siril_tmp_dir}/${siril_script}  
+    echo "preprocess ${sequence} -bias=../biases/${stack_bias} -dark=../darks/${stack_dark} -flat=../flats/${stack_flat} -equalize_cfa -cfa " >> ${siril_tmp_dir}/${siril_script}  
     # echo "load ${stack_name}"
     echo "cd .." >> ${siril_tmp_dir}/${siril_script}
     echo "cd .." >> ${siril_tmp_dir}/${siril_script}
@@ -231,7 +232,7 @@ generate_dark_frame 60 ${1} darks darks
 stack_dark=${dark_base_name}_60s_stacked.fit
 
 echo "Generating exoplanets files "
-generating_exo 60 ${1} V lights ${stack_flat} ${stack_dark}
+generating_exo 60 ${1} V lights ${stack_flat} ${stack_dark} ${stack_biases}
 
 echo "Running siril "
 cd ${siril_tmp_dir} 
