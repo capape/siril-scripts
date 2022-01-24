@@ -23,6 +23,24 @@ function delete_tmp_files() {
     find . -name "*seq" -exec rm "{}" ";"
 }
 
+function normalize_file_name() {
+    echo $1 | sed -s 's/_\([0-9]\+\)[s|S]_/_\1S_/' 
+}
+
+
+function copy_light_files_to_image_folder () {
+
+    img_src_folder=${1}
+    source_file=${2}
+    destination=${3}
+    
+    for light_file in `find ${img_src_folder}  -maxdepth 1 -iname "${source_file}*.fit" -type f -exec basename "{}" ";"`
+    do         
+      normalized=`normalize_file_name ${light_file}`
+      echo "Copying ${source_file} to ${destination}/${normalized}"
+      cp ${light_file} ${destination}/${normalized}        
+    done
+}
 
 ###############################################################################
 # $1: exposition in seconds
@@ -41,10 +59,21 @@ function generate_dark_frame() {
     tmp_dir=${3}
     dark_exposition_base_name="${dark_base_name}_${exposition}S_"
     stack_name=${4}
-    
-    for source_file in `find ${dark_src_folder} -name "${dark_exposition_base_name}*" -type f`;
+
+
+    echo "exposition...................: ${exposition}"
+    echo "dark_src_folder..............: ${dark_src_folder}"
+    echo "tmp_dir......................: ${tmp_dir}"
+    echo "dark_exposition_base_name....: ${dark_exposition_base_name}"
+    echo "stack_name...................: ${stack_name}"
+
+   
+    for source_file in `find ${dark_src_folder} -maxdepth 1   -iname "${dark_exposition_base_name}*" -type f -exec basename "{}" ";"`
     do
-        cp ${source_file} ${siril_tmp_dir}/${tmp_dir}        
+        destination="${siril_tmp_dir}/${tmp_dir}"
+        normalized=`normalize_file_name ${source_file}`
+        echo "Copying ${source_file} to ${destination}/${normalized}"
+        cp ${source_file} ${destination}/${normalized}        
     done
 
     echo "cd $tmp_dir" >> ${siril_tmp_dir}/${siril_script}  
@@ -76,16 +105,84 @@ function generate_flat_frame() {
     tmp_dir=${4}
     flat_exposition_base_name="${flat_base_name}_${filter}_${exposition}S_"    
     stack_dark_flat=${5}
-    
-    for source_file in `find ${flat_src_folder} -name "${flat_exposition_base_name}*" -type f`;
-    do
-        cp ${source_file} ${siril_tmp_dir}/${tmp_dir}        
-    done
 
+    echo "exposition...................: ${exposition}"
+    echo "flat_src_folder..............: ${flat_src_folder}"
+    echo "filter.......................: ${filter}"    
+    echo "tmp_dir......................: ${tmp_dir}"
+    echo "flat_exposition_base_name....: ${flat_exposition_base_name}"
+    echo "stack_dark_flat..............: ${stack_dark_flat}"
+
+   
+    for source_file in `find ${flat_src_folder}  -maxdepth 1  -iname "${flat_exposition_base_name}*" -type f -exec basename "{}" ";"`
+    do
+        destination="${siril_tmp_dir}/${tmp_dir}"
+        normalized=`normalize_file_name ${source_file}`
+        echo "Copying ${source_file} to ${destination}/${normalized}"
+        cp ${source_file} ${destination}/${normalized}        
+    done
+    
     echo "cd $tmp_dir" >> ${siril_tmp_dir}/${siril_script}  
     echo "preprocess ${flat_exposition_base_name} -bias=../darkflats/${stack_dark_flat}" >> ${siril_tmp_dir}/${siril_script}  
     echo "stack pp_${flat_exposition_base_name} rej 3 3 -nonorm " >> ${siril_tmp_dir}/${siril_script}
     echo "cd .." >> ${siril_tmp_dir}/${siril_script}
+    echo "############################################################" >> ${siril_tmp_dir}/${siril_script}  
+    echo "" >> ${siril_tmp_dir}/${siril_script}  
+    
+}
+
+
+
+
+function generating_object() {
+     
+    exposition=${1}
+    img_src_folder=${2}
+    filter=${3}
+    tmp_dir=${4}    
+    stack_flat=${5}
+    stack_dark=${6}
+    object_name=${7}
+
+    
+    object_base_name="${object_name}_${filter}_${exposition}S_"
+   
+    echo "############################################################" 
+    echo "# generating ${object_name} frames"
+    echo "exposition.......: ${exposition}"
+    echo "img_src_folder...: ${img_src_folder}"
+    echo "filter...........: ${filter}"    
+    echo "tmp_dir..........: ${tmp_dir}"
+    echo "${object_name}_base_name....: ${object_base_name}"
+    echo "stack_flat.......: ${stack_flat}"
+    echo "stack_dark.......: ${stack_dark}"
+    
+    for source_file in `find ${img_src_folder} -maxdepth 1  -iname "${object_name}_${filter}*_${exposition}S_001.fit" -type f -printf "%f\n" | sed -s s/_${exposition}S_001.fit//i | sort -u`;
+    do
+       echo "#############################" >> ${siril_tmp_dir}/${siril_script}  
+       echo "# generating ${object_name} ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
+       echo "cd ${tmp_dir}" >> ${siril_tmp_dir}/${siril_script}  
+       stack_name=${source_file}_PROCESSED.fit
+       destination="${siril_tmp_dir}/${tmp_dir}/${source_file}"
+       mkdir ${destination} 
+       
+       copy_light_files_to_image_folder ${img_src_folder} ${source_file} ${destination}      
+    
+
+       echo "cd ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
+
+       sequence="${source_file}_${exposition}S_"
+       echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> ${siril_tmp_dir}/${siril_script}  
+       echo "register pp_${sequence}" >> ${siril_tmp_dir}/${siril_script}  
+       echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> ${siril_tmp_dir}/${siril_script}  
+       # echo "load ${stack_name}" >> ${siril_tmp_dir}/${siril_script}  
+       # echo 
+       # echo "savetiff ${source_file}_result.tiff"  >> ${siril_tmp_dir}/${siril_script}  
+       echo "cd .." >> ${siril_tmp_dir}/${siril_script}
+       echo "cd .." >> ${siril_tmp_dir}/${siril_script}
+       echo "" >> ${siril_tmp_dir}/${siril_script}  
+    done
+    
     echo "############################################################" >> ${siril_tmp_dir}/${siril_script}  
     echo "" >> ${siril_tmp_dir}/${siril_script}  
     
@@ -113,38 +210,11 @@ function generating_gsn() {
     stack_flat=${5}
     stack_dark=${6}
     
-    
-
-    
-    for source_file in `find ${img_src_folder} -name "${supernova_base_name}*001.fit" -type f -printf "%f\n" | sed -s s/_${exposition}S_001.fit//`;
-    do
-       echo "#############################" >> ${siril_tmp_dir}/${siril_script}  
-       echo "# generating gsn ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "cd ${tmp_dir}" >> ${siril_tmp_dir}/${siril_script}  
-       stack_name=${source_file}.fit
-       mkdir ${siril_tmp_dir}/${tmp_dir}/${source_file}
-
-       find ${img_src_folder} -name "${source_file}*.fit" -type f -exec cp "{}" ${siril_tmp_dir}/${tmp_dir}/${source_file} ";"
-
-       echo "cd ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
-
-       sequence="${source_file}_${exposition}S_"
-       echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat} -cfa" >> ${siril_tmp_dir}/${siril_script}  
-       echo "register pp_${sequence}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "stack r_pp_${sequence} rej 3 3 -norm=addscale " >> ${siril_tmp_dir}/${siril_script}  
-       # echo "load ${stack_name}"
-       echo 
-       echo "savetiff ${supernova_base_name}_result"
-       echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-       echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-       echo "" >> ${siril_tmp_dir}/${siril_script}  
-    done
-    
-    echo "############################################################" >> ${siril_tmp_dir}/${siril_script}  
-    echo "" >> ${siril_tmp_dir}/${siril_script}  
+    generating_object "${exposition}" "${img_src_folder}" "${filter}" "${tmp_dir}" "${stack_flat}" "${stack_dark}" "${supernova_base_name}"
+    echo "############################################################" 
+    echo ""
     
 }
-
 
 ##############################################################################
 # $1: exposition in seconds
@@ -162,42 +232,13 @@ function generating_glx() {
     exposition=${1}
     img_src_folder=${2}
     filter=${3}
-    tmp_dir=${4}
-    glx_base_name="${galaxy_base_name}_${filter}_${exposition}S_"
+    tmp_dir=${4}    
     stack_flat=${5}
     stack_dark=${6}
     
-    
-
-    
-    for source_file in `find ${img_src_folder} -name "${galaxy_base_name}*_${exposition}S_001.fit" -type f -printf "%f\n" | sed -s s/_${exposition}S_001.fit//`;
-    do
-       echo "#############################" >> ${siril_tmp_dir}/${siril_script}  
-       echo "# generating glx ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "cd ${tmp_dir}" >> ${siril_tmp_dir}/${siril_script}  
-       stack_name=${source_file}.fit
-       mkdir ${siril_tmp_dir}/${tmp_dir}/${source_file}
-
-       find ${img_src_folder} -name "${source_file}*.fit" -type f -exec cp "{}" ${siril_tmp_dir}/${tmp_dir}/${source_file} ";"
-
-       echo "cd ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
-
-       sequence="${source_file}_${exposition}S_"
-       echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> ${siril_tmp_dir}/${siril_script}  
-       echo "register pp_${sequence}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "load ${stack_name}"
-       echo 
-       echo "savetiff ${galaxy_base_name}_result"
-
-        echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-        echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-        echo "" >> ${siril_tmp_dir}/${siril_script}  
-    done
-    
-    echo "############################################################" >> ${siril_tmp_dir}/${siril_script}  
-    echo "" >> ${siril_tmp_dir}/${siril_script}  
-    
+    generating_object "${exposition}" "${img_src_folder}" "${filter}" "${tmp_dir}" "${stack_flat}" "${stack_dark}" "${galaxy_base_name}"
+    echo "############################################################" 
+    echo ""
 }
 
 
@@ -222,36 +263,9 @@ function generating_nebulae() {
     stack_flat=${5}
     stack_dark=${6}
     
-    
-
-    
-    for source_file in `find ${img_src_folder} -name "${nebulae_base_name}*_${exposition}S_001.fit" -type f -printf "%f\n" | sed -s s/_${exposition}S_001.fit//`;
-    do
-       echo "#############################" >> ${siril_tmp_dir}/${siril_script}  
-       echo "# generating neb ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "cd ${tmp_dir}" >> ${siril_tmp_dir}/${siril_script}  
-       stack_name=${source_file}.fit
-       mkdir ${siril_tmp_dir}/${tmp_dir}/${source_file}
-
-       find ${img_src_folder} -name "${source_file}*.fit" -type f -exec cp "{}" ${siril_tmp_dir}/${tmp_dir}/${source_file} ";"
-
-       echo "cd ${source_file}" >> ${siril_tmp_dir}/${siril_script}  
-
-       sequence="${source_file}_${exposition}S_"
-       echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> ${siril_tmp_dir}/${siril_script}  
-       echo "register pp_${sequence}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> ${siril_tmp_dir}/${siril_script}  
-       echo "load ${stack_name}"
-       echo 
-       echo "savetiff ${nebulae_base_name}_result"
-
-        echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-        echo "cd .." >> ${siril_tmp_dir}/${siril_script}
-        echo "" >> ${siril_tmp_dir}/${siril_script}  
-    done
-    
-    echo "############################################################" >> ${siril_tmp_dir}/${siril_script}  
-    echo "" >> ${siril_tmp_dir}/${siril_script}  
+    generating_object "${exposition}" "${img_src_folder}" "${filter}" "${tmp_dir}" "${stack_flat}" "${stack_dark}" "$nebulae_base_name}"
+    echo "############################################################" 
+    echo ""
     
 }
 
@@ -284,7 +298,6 @@ mkdir ${siril_tmp_dir}/lights
 
 echo "Generating dark flats "
 generate_dark_frame 5 ${1} darkflats darkflat.fit
-
 stack_dark_flat=${dark_base_name}_5S_stacked.fit
 
 echo "Generating R flats "
@@ -307,11 +320,11 @@ echo "Generating galaxy "
 generating_glx 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
 
 echo "Generating nebulae "
-generating_nebulae 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
+# generating_nebulae 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
 
 
 echo "Running siril "
 cd ${siril_tmp_dir} 
-siril -s ${siril_script}
+siril -s ${siril_script} 
 delete_tmp_files
 cd ..
