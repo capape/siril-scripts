@@ -8,7 +8,7 @@ flat_base_name="FFF"
 dark_base_name="CDO"
 galaxy_base_name="GLX"
 supernova_base_name="GSN"
-nebulae_base_name="NEB"
+nebulae_base_name="NP"
 siril_script="sn_siril.ssf"
 
 function info() {
@@ -263,11 +263,14 @@ function generating_nebulae() {
     stack_flat=${5}
     stack_dark=${6}
     
-    generating_object "${exposition}" "${img_src_folder}" "${filter}" "${tmp_dir}" "${stack_flat}" "${stack_dark}" "$nebulae_base_name}"
+    generating_object "${exposition}" "${img_src_folder}" "${filter}" "${tmp_dir}" "${stack_flat}" "${stack_dark}" "${nebulae_base_name}"
     echo "############################################################" 
     echo ""
     
 }
+
+
+
 
 
 
@@ -320,11 +323,11 @@ echo "Generating galaxy "
 generating_glx 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
 
 echo "Generating nebulae "
-# generating_nebulae 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
+generating_nebulae 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
 
 
 echo "Running siril "
 cd ${siril_tmp_dir} 
-siril -s ${siril_script} 
+# siril -s ${siril_script} 
 delete_tmp_files
 cd ..
