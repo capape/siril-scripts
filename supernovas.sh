@@ -271,7 +271,9 @@ function generating_nebulae() {
 
 
 
-
+function set_default_values() {
+    echo "setfindstar 0.5 0.4" >> ${siril_tmp_dir}/${siril_script}
+}
 
 
 siril_tmp_dir="./siril_process"
@@ -315,6 +317,9 @@ stack_ds_flat="pp_${flat_base_name}_DS_5S_stacked.fit"
 echo "Generating darks "
 generate_dark_frame 60 ${1} darks darks
 stack_dark=${dark_base_name}_60S_stacked.fit
+
+echo "Adding config"
+set_default_values
 
 echo "Generating galaxy supernova "
 generating_gsn 60 ${1} R lights ${stack_r_flat} ${stack_dark}
