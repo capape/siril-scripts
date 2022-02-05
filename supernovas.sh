@@ -328,6 +328,6 @@ generating_nebulae 60 ${1} DS lights ${stack_ds_flat} ${stack_dark}
 
 echo "Running siril "
 cd ${siril_tmp_dir} 
-# siril -s ${siril_script} 
+siril -s ${siril_script} 
 delete_tmp_files
 cd ..
