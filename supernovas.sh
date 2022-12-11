@@ -27,23 +27,22 @@ delete_tmp_files() {
 }
 
 normalize_file_name() {
-    echo "$1" | sed -s 's/_\([0-9]\+\)[s|S]_/_\1S_/'
+    echo "$1" | sed -s 's/_\([0-9]\+\)[s|S]_/_\1S_/' | sed -s 's/ /___/g'
 }
 
 
 copy_light_files_to_image_folder () {
 
-    img_src_folder="${1}"
-    source_file="${2}"
-    destination="${3}"
-    exposition="${4}"
+    local img_src_folder="${1}"
+    local source_file="${2}"
+    local destination="${3}"
+    local exposition="${4}"
 
-    for light_file in $(find "${img_src_folder}"  -maxdepth 1 -iname "${source_file}*${exposition}S*.fit" -type f -exec basename "{}" ";")
-    # find "${img_src_folder}"  -maxdepth 1 -iname "${source_file}*.fit" -type f -exec basename "{}" -print0 ";" | while IFS= read -r -d '' light_file
+    find "${img_src_folder}"  -maxdepth 1 -iname "${source_file}*${exposition}S*.fit" -type f -exec basename "{}" ";" | while read -r light_file
     do
       normalized=$(normalize_file_name "${light_file}")
-      echo "Copying ${source_file} to ${destination}/${normalized}"
-      cp "${light_file}" "${destination}"/"${normalized}"
+      echo "Copying ${img_src_folder}/${light_file} to ${destination}/${normalized}"
+      cp "${img_src_folder}/${light_file}" "${destination}"/"${normalized}"
     done
 
 
@@ -79,12 +78,12 @@ generate_dark_frame() {
         echo "# generating dark frames" >> "${siril_tmp_dir}"/"${siril_script}"
         echo "requires 0.99.8" >> "${siril_tmp_dir}"/"${siril_script}"
 
-        for source_file in $(find "${dark_src_folder}" -maxdepth 1   -iname "${dark_exposition_base_name}*" -type f -exec basename "{}" ";")
+        find "${dark_src_folder}" -maxdepth 1   -iname "${dark_exposition_base_name}*" -type f -exec basename "{}" ";" | while read -r source_file
         do
             destination="${siril_tmp_dir}"/"${tmp_dir}"
             normalized=$(normalize_file_name "${source_file}")
-            echo "Copying ${source_file} to ${destination}/${normalized}"
-            cp "${source_file}" "${destination}"/"${normalized}"
+            echo "Copying ${dark_src_folder}/${source_file} to ${destination}/${normalized}"
+            cp "${dark_src_folder}/${source_file}" "${destination}"/"${normalized}"
         done
 
 
@@ -141,12 +140,12 @@ generate_flat_frame() {
         echo "requires 0.99.8" >> "${siril_tmp_dir}"/"${siril_script}"
 
 
-        for source_file in $(find "${flat_src_folder}"  -maxdepth 1  -iname "${flat_exposition_base_name}*" -type f -exec basename "{}" ";")
+        find "${flat_src_folder}"  -maxdepth 1  -iname "${flat_exposition_base_name}*" -type f -exec basename "{}" ";" | while read -r source_file
         do
             destination="${siril_tmp_dir}"/"${tmp_dir}"
             normalized=$(normalize_file_name "${source_file}")
-            echo "Copying ${source_file} to ${destination}/${normalized}"
-            cp "${source_file}" "${destination}"/"${normalized}"
+            echo "Copying flat ${flat_src_folder}/${source_file} to ${destination}/${normalized}"
+            cp "${flat_src_folder}/${source_file}" "${destination}"/"${normalized}"
         done
 
 
@@ -175,20 +174,21 @@ generate_flat_frame() {
 
 generating_object() {
 
-    exposition="${1}"
-    img_src_folder="${2}"
-    filter="${3}"
-    tmp_dir="${4}"
-    stack_flat="${5}"
-    stack_dark="${6}"
-    object_name="${7}"
-    process_folder="${8}"
+    local exposition="${1}"
+    local img_src_folder="${2}"
+    local filter="${3}"
+    local tmp_dir="${4}"
+    local stack_flat="${5}"
+    local stack_dark="${6}"
+    local object_name="${7}"
+    local process_folder="${8}"
 
 
-    object_base_name="${object_name}_${filter}_${exposition}S_"
+    local normalized_object_name="${object_name}"
+    local object_base_name="${normalized_object_name}_${filter}_${exposition}S_"
 
     echo "############################################################"
-    echo "# generating ${object_name} frames"
+    echo "# generating ${normalized_object_name} frames"
     echo "exposition.......: ${exposition}"
     echo "img_src_folder...: ${img_src_folder}"
     echo "filter...........: ${filter}"
@@ -202,18 +202,21 @@ generating_object() {
 
 
     [ ! -d "${img_src_folder}" ] && echo "Error:  ${img_src_folder} does not exits" && return
-  #  [ ! -f "${process_folder}/darks/${stack_dark}" ] && echo "Error:  ${process_folder}/darks/${stack_dark} does not exits" && return
-  #  [ ! -f "${process_folder}/flats/${stack_flat}" ] && echo "Error:  ${process_folder}/darks/${stack_dark} && return
+  
+    
 
-
-    for source_file in $(find "${img_src_folder}" -maxdepth 1  -iname "${object_name}_${filter}*_${exposition}S_001.fit" -type f -printf "%f\n" | sed -s "s/_${exposition}S_001.fit//i" | sort -u);
+    find "${img_src_folder}" -maxdepth 1  -iname "${object_name}_${filter}*_${exposition}S_001.fit" -type f -printf "%f\n" | sed -s "s/_${exposition}S_001.fit//i" | sort -u | while read -r real_source_file
     do
-
-        stack_name="${source_file}"_PROCESSED.fit
+        {
+        local source_file
+        source_file=$(normalize_file_name "${real_source_file}")
+        echo "${source_file} vs ${real_source_file}"
+        local stack_name="${source_file}"_PROCESSED.fit
         destination="${process_folder}/${tmp_dir}/${source_file}"
         mkdir "${destination}"
 
-        copy_light_files_to_image_folder "${img_src_folder}" "${source_file}" "${destination}" "${exposition}"
+        copy_light_files_to_image_folder "${img_src_folder}" "${real_source_file}" "${destination}" "${exposition}"
+        local nlights
         nlights=$(find "${destination}" -type f | wc -l )
         if [ "${nlights}" -lt 2 ]
         then
@@ -222,15 +225,20 @@ generating_object() {
         else
 
             echo "############################################################" >> "${process_folder}"/"${siril_script}"
-            echo "# generating ${object_name} frames" >> "${process_folder}"/"${siril_script}"
+            echo "# generating ${normalized_object_name} frames" >> "${process_folder}"/"${siril_script}"
             echo "requires 0.99.8" >> "${process_folder}"/"${siril_script}"
+
+
+            echo "USANDO ${source_file}"
+
             echo "#############################" >> "${process_folder}"/"${siril_script}"
-            echo "# generating ${object_name} ${source_file}" >> "${process_folder}"/"${siril_script}"
+            echo "# generating ${normalized_object_name} ${source_file}" >> "${process_folder}"/"${siril_script}"
             echo "cd ${tmp_dir}" >> "${process_folder}"/"${siril_script}"
 
 
             echo "cd ${source_file}" >> "${process_folder}"/"${siril_script}"
 
+            local sequence
             sequence="${source_file}_${exposition}S_"
             echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> "${process_folder}"/"${siril_script}"
             echo "register pp_${sequence}" >> "${process_folder}"/"${siril_script}"
@@ -242,6 +250,7 @@ generating_object() {
             echo "cd .." >> "${process_folder}"/"${siril_script}"
             echo "" >> "${process_folder}"/"${siril_script}"
         fi
+        }
     done
 
     echo "" >> "${process_folder}"/"${siril_script}"
@@ -257,12 +266,12 @@ set_default_values() {
 
 generate_objects_with_exp() {
 
-    img_src_folder="${1}"
-    exp="${2}"
-    flat_r="${3}"
-    flat_ds="${4}"
-    dark="${5}"
-    process_folder="${6}"
+    local img_src_folder="${1}"
+    local exp="${2}"
+    local flat_r="${3}"
+    local flat_ds="${4}"
+    local dark="${5}"
+    local process_folder="${6}"
 
 
     echo "Generating galaxy supernova "
@@ -274,9 +283,14 @@ generate_objects_with_exp() {
     echo "Generating nebulae "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${nebulae_base_name}" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${nebulae2_base_name}" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NPN" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NBP" "${process_folder}"
+    
 
     echo "Generating globular cluster "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${globular_cluster_base_name}" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO_NB" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO" "${process_folder}"
 
     echo "Generating quasar "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${quasar_base_name}" "${process_folder}"
@@ -285,7 +299,7 @@ generate_objects_with_exp() {
 }
 
 
-if  [ $# -lt  1 ] || [ $# -gt 2 ]
+if  [ $# -lt  2 ] || [ $# -gt 2 ]
 then
     echo "Usage: supernovas.sh img_folder exp"
     echo "  img_folder: Image root folder"
@@ -354,6 +368,7 @@ echo "Adding config"
 set_default_values
 
 generate_objects_with_exp "${img_folder}" "${exp}" "${stack_r_flat}" "${stack_ds_flat}" "${stack_dark}" "${siril_tmp_dir}"
+#generating_object "${exp}" "${img_folder}" "DS" "lights" "${stack_ds_flat}" "${stack_dark}" "NBP" "${siril_tmp_dir}"
 
 echo "Running siril "
 cd "${siril_tmp_dir}"
