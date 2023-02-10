@@ -211,7 +211,8 @@ generating_object() {
         local source_file
         source_file=$(normalize_file_name "${real_source_file}")
         echo "${source_file} vs ${real_source_file}"
-        local stack_name="${source_file}"_PROCESSED.fit
+        local dest_filename="${source_file}_PROCESSED"
+        local stack_name="${dest_filename}.fit"
         destination="${process_folder}/${tmp_dir}/${source_file}"
         mkdir "${destination}"
 
@@ -243,9 +244,10 @@ generating_object() {
             echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> "${process_folder}"/"${siril_script}"
             echo "register pp_${sequence}" >> "${process_folder}"/"${siril_script}"
             echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> "${process_folder}"/"${siril_script}"
-            # echo "load ${stack_name}" >> "${siril_tmp_dir}"/"${siril_script}"
-            # echo
-            # echo "savetiff ${source_file}_result.tiff"  >> "${process_folder}"/"${siril_script}"
+            echo "load ${stack_name}" >> "${siril_tmp_dir}"/"${siril_script}"
+            echo
+            echo "savetif ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
+            echo "savejpg ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
             echo "cd .." >> "${process_folder}"/"${siril_script}"
             echo "cd .." >> "${process_folder}"/"${siril_script}"
             echo "" >> "${process_folder}"/"${siril_script}"
@@ -294,6 +296,9 @@ generate_objects_with_exp() {
 
     echo "Generating quasar "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${quasar_base_name}" "${process_folder}"
+
+    echo "Generating planets "
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NEPTU" "${process_folder}"
 
 
 }
