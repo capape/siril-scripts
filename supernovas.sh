@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash 
 ###############################################################################
 #
 # Shell functions to process data from supernovas images.
