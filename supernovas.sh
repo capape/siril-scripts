@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 ###############################################################################
 #
 # Shell functions to process data from supernovas images.
@@ -245,8 +245,8 @@ generating_object() {
             echo "register pp_${sequence}" >> "${process_folder}"/"${siril_script}"
             echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> "${process_folder}"/"${siril_script}"
             echo "load ${stack_name}" >> "${siril_tmp_dir}"/"${siril_script}"
-            echo
-            echo "savetif ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
+            echo "autostretch -linked -2.8 0.1" >> "${siril_tmp_dir}"/"${siril_script}"
+            # echo "savetif ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
             echo "savejpg ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
             echo "cd .." >> "${process_folder}"/"${siril_script}"
             echo "cd .." >> "${process_folder}"/"${siril_script}"
@@ -262,7 +262,7 @@ generating_object() {
 
 
 set_default_values() {
-    echo "setfindstar 0.5 0.4" >> "${siril_tmp_dir}"/"${siril_script}"
+    echo "setfindstar -sigma=0.4 -roundness=0.5" >> "${siril_tmp_dir}"/"${siril_script}"
 }
 
 
@@ -287,18 +287,23 @@ generate_objects_with_exp() {
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${nebulae2_base_name}" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NPN" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NBP" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CUM+NEB" "${process_folder}"
     
 
     echo "Generating globular cluster "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${globular_cluster_base_name}" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO_NB" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CMO" "${process_folder}"
 
     echo "Generating quasar "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${quasar_base_name}" "${process_folder}"
 
     echo "Generating planets "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NEPTU" "${process_folder}"
+
+    echo "Generating COMETS "
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "COM" "${process_folder}"
 
 
 }
@@ -377,7 +382,7 @@ generate_objects_with_exp "${img_folder}" "${exp}" "${stack_r_flat}" "${stack_ds
 
 echo "Running siril "
 cd "${siril_tmp_dir}"
-siril -s "${siril_script}"
+siril -d . -s "${siril_script}"
 delete_tmp_files
 cd ..
 mkdir processed
