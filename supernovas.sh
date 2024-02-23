@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 ###############################################################################
 #
 # Shell functions to process data from supernovas images.
@@ -20,7 +20,16 @@ info() {
 
 }
 
+copy_master_files() {
+    if [[ ! -d "${1}/master_files" ]]; then
+        mkdir -p "${1}/master_files" 
+    fi
+
+    find . -name "*stack*" -exec cp "{}" "${1}/master_files" ";"
+}
+
 delete_tmp_files() {
+   
     find . -name "r_pp*" -exec rm "{}" ";"
     find . -name "pp*" -exec rm "{}" ";"
     find . -name "*seq" -exec rm "{}" ";"
@@ -62,7 +71,8 @@ generate_dark_frame() {
     dark_exposition_base_name="${dark_base_name}_${exposition}S_"
     stack_name=${4}
 
-
+    echo "############################################################"
+    echo "# generating ${dark_exposition_base_name} frames"
     echo "exposition...................: ${exposition}"
     echo "dark_src_folder..............: ${dark_src_folder}"
     echo "tmp_dir......................: ${tmp_dir}"
@@ -76,7 +86,8 @@ generate_dark_frame() {
 
         echo "############################################################" >> "${siril_tmp_dir}"/"${siril_script}"
         echo "# generating dark frames" >> "${siril_tmp_dir}"/"${siril_script}"
-        echo "requires 0.99.8" >> "${siril_tmp_dir}"/"${siril_script}"
+        echo "requires 1.2.0" >> "${siril_tmp_dir}"/"${siril_script}"
+        echo "set16bits" >>  "${siril_tmp_dir}"/"${siril_script}"
 
         find "${dark_src_folder}" -maxdepth 1   -iname "${dark_exposition_base_name}*" -type f -exec basename "{}" ";" | while read -r source_file
         do
@@ -124,6 +135,9 @@ generate_flat_frame() {
     flat_exposition_base_name="${flat_base_name}_${filter}_${exposition}S_"
     stack_dark_flat=${5}
 
+    echo "############################################################"
+    echo "# generating ${flat_base_name}_${filter} frames"
+    
     echo "exposition...................: ${exposition}"
     echo "flat_src_folder..............: ${flat_src_folder}"
     echo "filter.......................: ${filter}"
@@ -137,8 +151,8 @@ generate_flat_frame() {
     then
         echo "############################################################" >> "${siril_tmp_dir}"/"${siril_script}"
         echo "# generating flat frames" >> "${siril_tmp_dir}"/"${siril_script}"
-        echo "requires 0.99.8" >> "${siril_tmp_dir}"/"${siril_script}"
-
+        echo "requires 1.2.0" >> "${siril_tmp_dir}"/"${siril_script}"
+        echo "set16bits" >>  "${siril_tmp_dir}"/"${siril_script}"
 
         find "${flat_src_folder}"  -maxdepth 1  -iname "${flat_exposition_base_name}*" -type f -exec basename "{}" ";" | while read -r source_file
         do
@@ -150,7 +164,7 @@ generate_flat_frame() {
 
 
         echo "cd $tmp_dir" >> "${siril_tmp_dir}"/"${siril_script}"
-        echo "preprocess ${flat_exposition_base_name} -bias=../darkflats/${stack_dark_flat}" >> "${siril_tmp_dir}"/"${siril_script}"
+        echo "calibrate ${flat_exposition_base_name} -bias=../darkflats/${stack_dark_flat}" >> "${siril_tmp_dir}"/"${siril_script}"
         echo "stack pp_${flat_exposition_base_name} rej 3 3 -nonorm " >> "${siril_tmp_dir}"/"${siril_script}"
         echo "cd .." >> "${siril_tmp_dir}"/"${siril_script}"
         echo "############################################################" >> "${siril_tmp_dir}"/"${siril_script}"
@@ -227,8 +241,8 @@ generating_object() {
 
             echo "############################################################" >> "${process_folder}"/"${siril_script}"
             echo "# generating ${normalized_object_name} frames" >> "${process_folder}"/"${siril_script}"
-            echo "requires 0.99.8" >> "${process_folder}"/"${siril_script}"
-
+            echo "requires 1.2.0" >> "${process_folder}"/"${siril_script}"
+            echo "set16bits" >>  "${siril_tmp_dir}"/"${siril_script}"
 
             echo "USANDO ${source_file}"
 
@@ -241,12 +255,11 @@ generating_object() {
 
             local sequence
             sequence="${source_file}_${exposition}S_"
-            echo "preprocess ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> "${process_folder}"/"${siril_script}"
+            echo "calibrate ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> "${process_folder}"/"${siril_script}"
             echo "register pp_${sequence}" >> "${process_folder}"/"${siril_script}"
             echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> "${process_folder}"/"${siril_script}"
             echo "load ${stack_name}" >> "${siril_tmp_dir}"/"${siril_script}"
-            echo
-            echo "savetif ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
+            echo "autostretch -linked -2.8 0.1" >> "${siril_tmp_dir}"/"${siril_script}"
             echo "savejpg ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
             echo "cd .." >> "${process_folder}"/"${siril_script}"
             echo "cd .." >> "${process_folder}"/"${siril_script}"
@@ -262,7 +275,7 @@ generating_object() {
 
 
 set_default_values() {
-    echo "setfindstar 0.5 0.4" >> "${siril_tmp_dir}"/"${siril_script}"
+    echo "setfindstar -sigma=0.4 -roundness=0.5" >> "${siril_tmp_dir}"/"${siril_script}"
 }
 
 
@@ -287,12 +300,15 @@ generate_objects_with_exp() {
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${nebulae2_base_name}" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NPN" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NBP" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CUM+NEB" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NEB+CUM" "${process_folder}"
     
 
     echo "Generating globular cluster "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${globular_cluster_base_name}" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO_NB" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CMO" "${process_folder}"
 
     echo "Generating quasar "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${quasar_base_name}" "${process_folder}"
@@ -300,15 +316,36 @@ generate_objects_with_exp() {
     echo "Generating planets "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "NEPTU" "${process_folder}"
 
+    echo "Generating COMETS "
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "COM" "${process_folder}"
+
 
 }
 
 
-if  [ $# -lt  2 ] || [ $# -gt 2 ]
+resolveImage() {
+
+    imageToResolve="${1}"
+    processed_folder="${2}"
+    
+    filename=$(basename "${imageToResolve}")
+    rootfilename=$(echo "${filename%.*}")
+
+    cp "${imageToResolve}" /tmp
+    echo "Resolving ${filename}"
+    solve-field --overwrite "/tmp/${filename}" 2>/dev/null | tail -3
+
+    mv "/tmp/${rootfilename}-ngc.png" "${processed_folder}"
+    rm /tmp/"${rootfilename}"*    
+}
+
+
+if  [ $# -lt  2 ] || [ $# -gt 3 ]
 then
-    echo "Usage: supernovas.sh img_folder exp"
+    echo "Usage: supernovas.sh img_folder exp [dest_folder]"
     echo "  img_folder: Image root folder"
     echo "  exp:  seconds of image exposure"
+    echo "  dest_folder: Optional. Name of folder to place results"
     exit 0
 fi
 
@@ -322,6 +359,15 @@ then
     exp=${2}
 fi
 echo "Exposition ${exp}"
+
+
+if [ -z "$3" ]
+then
+    processed_folder="processed"
+else 
+    processed_folder="${3}"
+fi
+
 
 
 siril_tmp_dir="./siril_process"
@@ -339,6 +385,7 @@ echo "# Autogenerated siril process" >>  "${siril_tmp_dir}"/"${siril_script}"
 echo "############################################################" >>  "${siril_tmp_dir}"/"${siril_script}"
 
 
+
 echo "Creating ${siril_tmp_dir}/darkflats folder for processing"
 mkdir "${siril_tmp_dir}"/darkflats
 
@@ -354,14 +401,14 @@ mkdir "${siril_tmp_dir}"/lights
 
 echo "Generating dark flats "
 generate_dark_frame 5 "${img_folder}" darkflats darkflat.fit
-stack_dark_flat=${dark_base_name}_5S_stacked.fit
+stack_dark_flat="${dark_base_name}_5S_stacked.fit"
 
 echo "Generating R flats "
-generate_flat_frame 5 "${img_folder}" R flats ${stack_dark_flat}
+generate_flat_frame 5 "${img_folder}" R flats "${stack_dark_flat}"
 stack_r_flat="pp_${flat_base_name}_R_5S_stacked.fit"
 
 echo "Generating DS flats "
-generate_flat_frame 5 "${img_folder}" DS flats ${stack_dark_flat}
+generate_flat_frame 5 "${img_folder}" DS flats "${stack_dark_flat}"
 stack_ds_flat="pp_${flat_base_name}_DS_5S_stacked.fit"
 
 
@@ -377,10 +424,27 @@ generate_objects_with_exp "${img_folder}" "${exp}" "${stack_r_flat}" "${stack_ds
 
 echo "Running siril "
 cd "${siril_tmp_dir}"
-siril -s "${siril_script}"
+siril -d . -s "${siril_script}" >process.log 2>/dev/null 
+cp process.log /tmp/process.log
+copy_master_files ..
 delete_tmp_files
 cd ..
-mkdir processed
-find  "${siril_tmp_dir}"  -name "*PROCESSED*" -exec cp "{}" processed ";"
 
+
+mkdir "${processed_folder}"
+find  "${siril_tmp_dir}"  -name "*PROCESSED*" -exec cp "{}" "${processed_folder}" ";"
+
+
+#qrencode "(c) Grupo Supernovas L'Astronòmica de Sabadell" -o qrcode-supernovas.jpeg
+
+find "${processed_folder}" -name  "*PROCESSED.jpg" | while read -r newfile
+do
+  resolveImage "${newfile}" "${processed_folder}"
+  
+done
+
+echo "Borrar temporales"
 rm -rf "${siril_tmp_dir}"
+
+
+
