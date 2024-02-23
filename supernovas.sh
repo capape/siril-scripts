@@ -435,7 +435,7 @@ mkdir "${processed_folder}"
 find  "${siril_tmp_dir}"  -name "*PROCESSED*" -exec cp "{}" "${processed_folder}" ";"
 
 
-qrencode "(c) Grupo Supernovas L'Astronòmica de Sabadell" -o qrcode-supernovas.jpeg
+#qrencode "(c) Grupo Supernovas L'Astronòmica de Sabadell" -o qrcode-supernovas.jpeg
 
 find "${processed_folder}" -name  "*PROCESSED.jpg" | while read -r newfile
 do
