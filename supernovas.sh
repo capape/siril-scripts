@@ -322,6 +322,24 @@ generate_objects_with_exp() {
 
 }
 
+commentImage() {
+ 
+ image="${1}"
+ comment="${2}"
+ convert  -gravity southwest -font Helvetica -pointsize 9  -fill cyan -draw "${comment}" "${image}" "${image}" 
+
+}
+
+imageInfoForAnnotation() {
+
+    newfile="${1}"
+
+    filter=$(echo "${newfile}" |  cut -f2 -d_)
+    object=$(echo "${newfile}" |  cut -f3 -d_)
+    dateImg=$(fitsheader "${newfile}" -k DATE-OBS | tail -1 | cut -f2 -d=|sed -e "s/\/.*//" | sed -e "s/'//g")
+    comment="text 10,25 '${object} - Filter: ${filter} - Date: ${dateImg}'; text 10,10 '© Grup Supernoves l\'Astronòmica de Sabadell (AAS)'"
+    echo ${comment}
+}
 
 resolveImage() {
 
@@ -437,11 +455,24 @@ find  "${siril_tmp_dir}"  -name "*PROCESSED*" -exec cp "{}" "${processed_folder}
 
 #qrencode "(c) Grupo Supernovas L'Astronòmica de Sabadell" -o qrcode-supernovas.jpeg
 
+
 find "${processed_folder}" -name  "*PROCESSED.jpg" | while read -r newfile
 do
-  resolveImage "${newfile}" "${processed_folder}"
-  
+  resolveImage "${newfile}" "${processed_folder}"  
 done
+
+find "${processed_folder}" -name  "*PROCESSED.fit" | while read -r newfile
+do
+ 
+ comment=$(imageInfoForAnnotation "${newfile}")
+
+ filejpg=$(echo "${newfile}" | sed -e "s/fit/jpg/")
+ filepng=$(echo "${newfile}" | sed -e "s/\.fit/-ngc.png/")
+
+ convert  -gravity southwest -font Helvetica -pointsize 9  -fill cyan -draw "${comment}" "${filejpg}" "${filejpg}" 
+ convert  -gravity southwest -font Helvetica -pointsize 9  -fill cyan -draw "${comment}" "${filepng}" "${filepng}" 
+done
+
 
 echo "Borrar temporales"
 rm -rf "${siril_tmp_dir}"
