@@ -12,7 +12,12 @@ nebulae_base_name="NP"
 nebulae2_base_name="NEB"
 globular_cluster_base_name="CG"
 quasar_base_name="QUASAR"
+
 siril_script="sn_siril.ssf"
+
+fix_fff_images=1
+fix_cdo_images=1
+fix_light_images=1
 
 info() {
 
@@ -52,6 +57,12 @@ copy_light_files_to_image_folder () {
       normalized=$(normalize_file_name "${light_file}")
       echo "Copying ${img_src_folder}/${light_file} to ${destination}/${normalized}"
       cp "${img_src_folder}/${light_file}" "${destination}"/"${normalized}"
+
+      if [ ${fix_light_images} -eq 1 ] 
+        then
+            remove_bscale  "${destination}"/"${normalized}"
+            remove_bzero  "${destination}"/"${normalized}"
+      fi
     done
 
 
@@ -95,6 +106,12 @@ generate_dark_frame() {
             normalized=$(normalize_file_name "${source_file}")
             echo "Copying ${dark_src_folder}/${source_file} to ${destination}/${normalized}"
             cp "${dark_src_folder}/${source_file}" "${destination}"/"${normalized}"
+
+            if [ ${fix_cdo_images} -eq 1 ] 
+            then
+                remove_bscale  "${destination}"/"${normalized}"
+                remove_bzero  "${destination}"/"${normalized}"
+            fi
         done
 
 
@@ -160,6 +177,12 @@ generate_flat_frame() {
             normalized=$(normalize_file_name "${source_file}")
             echo "Copying flat ${flat_src_folder}/${source_file} to ${destination}/${normalized}"
             cp "${flat_src_folder}/${source_file}" "${destination}"/"${normalized}"
+
+            if [ ${fix_fff_images} -eq 1 ] 
+            then
+                remove_bscale  "${destination}"/"${normalized}"
+                remove_bzero  "${destination}"/"${normalized}"
+            fi
         done
 
 
@@ -214,6 +237,7 @@ generating_object() {
     echo "siril_tmp_dir...: ${siril_tmp_dir}"
     echo "Current folder...: $(pwd)"
 
+   
 
     [ ! -d "${img_src_folder}" ] && echo "Error:  ${img_src_folder} does not exits" && return
   
@@ -230,6 +254,8 @@ generating_object() {
         destination="${process_folder}/${tmp_dir}/${source_file}"
         mkdir "${destination}"
 
+        object_script="${destination}"/"${siril_script}"
+
         copy_light_files_to_image_folder "${img_src_folder}" "${real_source_file}" "${destination}" "${exposition}"
         local nlights
         nlights=$(find "${destination}" -type f | wc -l )
@@ -239,31 +265,32 @@ generating_object() {
 
         else
 
-            echo "############################################################" >> "${process_folder}"/"${siril_script}"
-            echo "# generating ${normalized_object_name} frames" >> "${process_folder}"/"${siril_script}"
-            echo "requires 1.2.0" >> "${process_folder}"/"${siril_script}"
-            echo "set16bits" >>  "${siril_tmp_dir}"/"${siril_script}"
+            echo "############################################################" >> "${object_script}"
+            echo "# generating ${normalized_object_name} frames" >> "${object_script}"
+            echo "requires 1.2.0" >> "${object_script}"
+            echo "set16bits" >>  "${object_script}"
 
             echo "USANDO ${source_file}"
 
-            echo "#############################" >> "${process_folder}"/"${siril_script}"
-            echo "# generating ${normalized_object_name} ${source_file}" >> "${process_folder}"/"${siril_script}"
-            echo "cd ${tmp_dir}" >> "${process_folder}"/"${siril_script}"
+            echo "#############################" >> "${object_script}"
+            echo "# generating ${normalized_object_name} ${source_file}" >> "${object_script}"
+            echo "cd ${tmp_dir}" >> "${object_script}"
 
 
-            echo "cd ${source_file}" >> "${process_folder}"/"${siril_script}"
+            echo "cd ${source_file}" >> "${object_script}"
 
             local sequence
             sequence="${source_file}_${exposition}S_"
-            echo "calibrate ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> "${process_folder}"/"${siril_script}"
-            echo "register pp_${sequence}" >> "${process_folder}"/"${siril_script}"
-            echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> "${process_folder}"/"${siril_script}"
-            echo "load ${stack_name}" >> "${siril_tmp_dir}"/"${siril_script}"
-            echo "autostretch -linked -2.8 0.1" >> "${siril_tmp_dir}"/"${siril_script}"
-            echo "savejpg ${dest_filename}"  >> "${process_folder}"/"${siril_script}"
-            echo "cd .." >> "${process_folder}"/"${siril_script}"
-            echo "cd .." >> "${process_folder}"/"${siril_script}"
-            echo "" >> "${process_folder}"/"${siril_script}"
+            echo "calibrate ${sequence} -dark=../../darks/${stack_dark} -flat=../../flats/${stack_flat}  -cfa" >> "${object_script}"
+            echo "register pp_${sequence}" >> "${object_script}"
+            echo "stack r_pp_${sequence} rej 3 3 -norm=addscale -out=${stack_name}" >> "${object_script}"
+            echo "load ${stack_name}" >> "${object_script}"
+            echo "autostretch -linked -2.8 0.1" >> "${object_script}"
+            #echo "asinh -human 100" >> "${object_script}"
+            echo "savejpg ${dest_filename}"  >> "${object_script}"
+            echo "cd .." >> "${object_script}"
+            echo "cd .." >> "${object_script}"
+            echo "" >> "${object_script}"
         fi
         }
     done
@@ -278,6 +305,44 @@ set_default_values() {
     echo "setfindstar -sigma=0.4 -roundness=0.5" >> "${siril_tmp_dir}"/"${siril_script}"
 }
 
+
+remove_bzero() {
+   
+    
+    bzero=$(readHeader "${1}" BZERO)    
+
+    if [ "${bzero}" == "0.0" ] 
+    then
+        remove-header "${1}" BZERO
+    fi
+    
+}
+
+remove_bscale() {
+ 
+
+    bscale=$(readHeader "${1}" BSCALE)
+
+    if [ "${bscale}" == "1.0" ]
+    then
+        remove-header "${1}" BSCALE
+    fi
+    
+}
+
+readHeader() {
+
+    
+   fitsheader -k "${2}" "${1}" | tail -1 | grep "${2}" > /dev/null 
+    
+    if [ $? -ne  0 ]
+    then
+        echo ""    
+    else
+        value=$(fitsheader -k "${2}" "${1}" | tail -1  | grep "${2}" | cut -f2 -d= | sed -s 's/ //g')
+        echo "${value}"
+    fi
+}
 
 generate_objects_with_exp() {
 
@@ -318,6 +383,9 @@ generate_objects_with_exp() {
 
     echo "Generating COMETS "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "COM" "${process_folder}"
+
+    echo "Generating STARS "
+    generating_object "${exposition}" "${img_src_folder}" "R" "lights" "${flat_ds}" "${dark}" "ST" "${process_folder}"
 
 
 }
@@ -421,6 +489,7 @@ echo "Generating dark flats "
 generate_dark_frame 5 "${img_folder}" darkflats darkflat.fit
 stack_dark_flat="${dark_base_name}_5S_stacked.fit"
 
+
 echo "Generating R flats "
 generate_flat_frame 5 "${img_folder}" R flats "${stack_dark_flat}"
 stack_r_flat="pp_${flat_base_name}_R_5S_stacked.fit"
@@ -438,13 +507,27 @@ echo "Adding config"
 set_default_values
 
 generate_objects_with_exp "${img_folder}" "${exp}" "${stack_r_flat}" "${stack_ds_flat}" "${stack_dark}" "${siril_tmp_dir}"
-#generating_object "${exp}" "${img_folder}" "DS" "lights" "${stack_ds_flat}" "${stack_dark}" "NBP" "${siril_tmp_dir}"
 
 echo "Running siril "
 cd "${siril_tmp_dir}"
 siril -d . -s "${siril_script}" >process.log 2>/dev/null 
+
+find lights -name "*ssf" | sort | while read -r script_object
+do
+  
+    siril -d . -s "${script_object}"  > process.log 2>/dev/null
+    if [ $? -eq 0 ]
+    then 
+        echo "Processing ${script_object} OK"
+    else
+        echo "Processing ${script_object} FAILED"
+    fi
+done
+
+
 cp process.log /tmp/process.log
 copy_master_files ..
+
 delete_tmp_files
 cd ..
 
@@ -456,12 +539,12 @@ find  "${siril_tmp_dir}"  -name "*PROCESSED*" -exec cp "{}" "${processed_folder}
 #qrencode "(c) Grupo Supernovas L'Astronòmica de Sabadell" -o qrcode-supernovas.jpeg
 
 
-find "${processed_folder}" -name  "*PROCESSED.jpg" | while read -r newfile
+find "${processed_folder}" -name  "*PROCESSED.jpg" | sort | while read -r newfile
 do
   resolveImage "${newfile}" "${processed_folder}"  
 done
 
-find "${processed_folder}" -name  "*PROCESSED.fit" | while read -r newfile
+find "${processed_folder}" -name  "*PROCESSED.fit" | sort | while read -r newfile
 do
  
  comment=$(imageInfoForAnnotation "${newfile}")
