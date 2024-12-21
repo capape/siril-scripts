@@ -1,7 +1,13 @@
 #!/bin/bash
 
 imageToResolve="${1}"
-processed_folder="${2}"
+
+if  [ $# -lt  2 ] 
+then 
+    processed_folder="."
+else
+    processed_folder="${2}"
+fi
    
 filename=$(basename "${imageToResolve}")
 rootfilename=$(echo "${filename%.*}")

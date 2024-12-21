@@ -20,14 +20,14 @@ imageInfoForAnnotation() {
 #done
 
 
-find . -name  "GSN*gqf*PROCESSED.fit" | while read -r newfile
+find . -name  "ST*PROCESSED.fit" | while read -r newfile
 do
  
  comment=$(imageInfoForAnnotation "${newfile}")
 
- #filejpg=$(echo "${newfile}" | sed -e "s/fit/jpg/")
+ filejpg=$(echo "${newfile}" | sed -e "s/fit/jpg/")
  #filejpg=$(echo "${newfile}" | sed -e "s/\.fit/-pointer.jpg/")
- filejpg=$(echo "${newfile}" | sed -e "s/\.fit/-ngc.png/")
+ #filejpg=$(echo "${newfile}" | sed -e "s/\.fit/-ngc.png/")
 
  echo "Adding to  ${filejpg}"
  convert  -gravity southwest -font Helvetica -pointsize 9  -fill cyan -draw "${comment}" "${filejpg}" "${filejpg}" 

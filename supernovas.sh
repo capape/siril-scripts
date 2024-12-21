@@ -359,6 +359,7 @@ generate_objects_with_exp() {
 
     echo "Generating galaxy "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${galaxy_base_name}" "${process_folder}"
+    generating_object "${exposition}" "${img_src_folder}" "R" "lights" "${flat_r}" "${dark}" "${galaxy_base_name}" "${process_folder}"
 
     echo "Generating nebulae "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${nebulae_base_name}" "${process_folder}"
@@ -374,6 +375,9 @@ generate_objects_with_exp() {
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO_NB" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CO" "${process_folder}"
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CMO" "${process_folder}"
+
+    echo "Generating open cluster "
+    generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "CUM_OB" "${process_folder}"
 
     echo "Generating quasar "
     generating_object "${exposition}" "${img_src_folder}" "DS" "lights" "${flat_ds}" "${dark}" "${quasar_base_name}" "${process_folder}"
